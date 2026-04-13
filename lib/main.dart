@@ -5,6 +5,7 @@ import 'package:loy_herbs/services/database_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:loy_herbs/views/detail/herb_detail_screen.dart';
 import 'package:loy_herbs/views/admin/admin_screen.dart';
+import 'package:loy_herbs/views/auth/signup_screen.dart';
 import 'package:loy_herbs/data/models/herb_model.dart';
 
 // 1. THE HERB MODEL
@@ -115,6 +116,15 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: _signIn, child: const Text("Login")),
+            // ... existing Login button ...
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SignUpScreen()),
+              ),
+              child: const Text("Don't have an account? Sign Up"),
+            ),
           ],
         ),
       ),
@@ -191,7 +201,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           IconButton(
             onPressed: () async {
-              /* logout logic */
+              await Supabase.instance.client.auth.signOut();
+              if (mounted) {
+                // Navigate back to Login and remove all previous screens from memory
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
             icon: const Icon(Icons.logout),
           ),
