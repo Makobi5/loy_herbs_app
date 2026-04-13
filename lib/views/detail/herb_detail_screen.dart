@@ -11,13 +11,19 @@ class HerbDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const List<String> adminEmails = [
+      'makobisimon@gmail.com',
+      'loyce@gmail.com',
+      'anotheradmin@gmail.com',
+    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(herb.name),
         actions: [
           // THE SPREAD OPERATOR (...) ALLOWS US TO ADD MULTIPLE ICONS
-          if (Supabase.instance.client.auth.currentUser?.email ==
-              'makobisimon@gmail.com') ...[
+          if (adminEmails.contains(
+            Supabase.instance.client.auth.currentUser?.email,
+          )) ...[
             // 1. DELETE BUTTON
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
