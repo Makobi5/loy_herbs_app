@@ -9,7 +9,10 @@ import 'package:loy_herbs/views/auth/signup_screen.dart';
 import 'package:loy_herbs/data/models/herb_model.dart';
 
 // 1. THE HERB MODEL
-
+const List<String> adminEmails = [
+  'makobisimon@gmail.com',
+  'lasingwirebit23@usj.ac.ug',
+];
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -189,8 +192,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text("Loy Herbs"),
         actions: [
           // 1. ADMIN BUTTON (REFRESHES ON RETURN)
-          if (Supabase.instance.client.auth.currentUser?.email ==
-              'makobisimon@gmail.com')
+          if (adminEmails.contains(
+            Supabase.instance.client.auth.currentUser?.email,
+          ))
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
               onPressed: () {

@@ -13,8 +13,7 @@ class HerbDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const List<String> adminEmails = [
       'makobisimon@gmail.com',
-      'loyce@gmail.com',
-      'anotheradmin@gmail.com',
+      'lasingwirebit23@usj.ac.ug',
     ];
     return Scaffold(
       appBar: AppBar(
