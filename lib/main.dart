@@ -187,27 +187,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Loy Herbs"),
-        // Inside the AppBar actions list:
         actions: [
-          // Only show the Admin button if the user is the Admin
+          // 1. ADMIN BUTTON (REFRESHES ON RETURN)
           if (Supabase.instance.client.auth.currentUser?.email ==
               'makobisimon@gmail.com')
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AdminScreen()),
-              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminScreen()),
+                ).then((_) => fetchHerbs()); // <--- REFRESH LOGIC
+              },
             ),
+
+          // LOGOUT BUTTON
           IconButton(
             onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
+              await _supabase.auth.signOut();
               if (mounted) {
-                // Navigate back to Login and remove all previous screens from memory
-                Navigator.pushAndRemoveUntil(
+                Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
                 );
               }
             },
@@ -217,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // Medical Disclaimer
+          // Disclaimer
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(8),
@@ -228,6 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
               textAlign: TextAlign.center,
             ),
           ),
+
           // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -242,6 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+
           // Herb List
           Expanded(
             child: isLoading
@@ -252,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.search_off, size: 60, color: Colors.grey),
-                        Text("No herbs found in the database yet."),
+                        Text("No herbs found."),
                       ],
                     ),
                   )
@@ -278,6 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           herb.scientificName ?? "Species unknown",
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+
+                        // 2. LIST ITEM NAVIGATION (REFRESHES ON RETURN)
                         onTap: () {
                           Navigator.push(
                             context,
@@ -285,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               builder: (context) =>
                                   HerbDetailScreen(herb: herb),
                             ),
-                          );
+                          ).then((_) => fetchHerbs()); // <--- REFRESH LOGIC
                         },
                       );
                     },
