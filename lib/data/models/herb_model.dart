@@ -5,7 +5,7 @@ class Herb {
   final String description;
   final String preparation;
   final String? imageUrl;
-  final List<String> diseases; // We'll join these from the DB
+  final List<String> diseases;
 
   Herb({
     required this.id,
@@ -17,19 +17,16 @@ class Herb {
     required this.diseases,
   });
 
-  // Convert Supabase Map to Herb Object
+  // PLACE IT HERE INSIDE THE CLASS
   factory Herb.fromMap(Map<String, dynamic> map) {
     return Herb(
       id: map['id'],
-      name: map['name'],
-      scientificName: map['scientific_name'],
-      description: map['description'],
-      preparation: map['preparation_method'],
+      name: map['name'] ?? 'Unknown Herb',
+      scientificName: map['scientific_name'] ?? 'N/A',
+      description: map['description'] ?? 'No description provided.',
+      preparation: map['preparation_method'] ?? 'No instructions.',
       imageUrl: map['image_url'],
-      // This assumes we fetch joined data
-      diseases: List<String>.from(
-        map['herb_diseases']?.map((x) => x['diseases']['name']) ?? [],
-      ),
+      diseases: [], // We initialize as empty for now to avoid crashes
     );
   }
 }

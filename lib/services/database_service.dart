@@ -24,9 +24,7 @@ class DatabaseService {
       // ONLINE: Fetch from Supabase
       try {
         // Note: I added the select join here so it matches the Herb model in your main.dart
-        final data = await _supabase
-            .from('herbs')
-            .select('*, herb_diseases(diseases(name))');
+        final data = await _supabase.from('herbs').select();
 
         await box.put(
           'all_herbs',

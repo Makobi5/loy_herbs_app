@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:loy_herbs/services/database_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:loy_herbs/views/detail/herb_detail_screen.dart';
+import 'package:loy_herbs/views/admin/admin_screen.dart';
 import 'package:loy_herbs/data/models/herb_model.dart';
 
 // 1. THE HERB MODEL
@@ -176,16 +177,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Loy Herbs"),
+        // Inside the AppBar actions list:
         actions: [
+          // Only show the Admin button if the user is the Admin
+          if (Supabase.instance.client.auth.currentUser?.email ==
+              'makobisimon@gmail.com')
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminScreen()),
+              ),
+            ),
           IconButton(
             onPressed: () async {
-              await _supabase.auth.signOut();
-              if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              }
+              /* logout logic */
             },
             icon: const Icon(Icons.logout),
           ),
@@ -222,8 +228,16 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : (filteredHerbs == null || filteredHerbs.isEmpty)
-                ? const Center(child: Text("No herbs found."))
+                : filteredHerbs.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 60, color: Colors.grey),
+                        Text("No herbs found in the database yet."),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: filteredHerbs.length,
                     itemBuilder: (context, index) {
