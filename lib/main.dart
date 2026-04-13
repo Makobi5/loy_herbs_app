@@ -191,22 +191,33 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text("Loy Herbs"),
         actions: [
-          // 1. ADMIN BUTTON (REFRESHES ON RETURN)
           if (adminEmails.contains(
             Supabase.instance.client.auth.currentUser?.email,
           ))
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings),
+            TextButton.icon(
+              // CHANGED ICON TO Icons.add_circle_outline
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: Color(0xFF1B5E20),
+              ),
+              label: const Text(
+                "Add herb",
+                style: TextStyle(
+                  color: Color(0xFF1B5E20),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const AdminScreen()),
-                ).then((_) => fetchHerbs()); // <--- REFRESH LOGIC
+                ).then((_) => fetchHerbs());
               },
             ),
 
-          // LOGOUT BUTTON
-          IconButton(
+          TextButton.icon(
+            icon: const Icon(Icons.logout, size: 20, color: Colors.grey),
+            label: const Text("Logout", style: TextStyle(color: Colors.grey)),
             onPressed: () async {
               await _supabase.auth.signOut();
               if (mounted) {
@@ -216,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             },
-            icon: const Icon(Icons.logout),
           ),
         ],
       ),
