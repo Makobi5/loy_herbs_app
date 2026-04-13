@@ -15,19 +15,25 @@ class HerbDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(herb.name),
         actions: [
-          // ONLY SHOW EDIT ICON IF USER IS THE ADMIN
+          // THE SPREAD OPERATOR (...) ALLOWS US TO ADD MULTIPLE ICONS
           if (Supabase.instance.client.auth.currentUser?.email ==
-              'makobisimon@gmail.com')
+              'makobisimon@gmail.com') ...[
+            // 1. DELETE BUTTON
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: () => _deleteHerb(context), // We'll define this below
+            ),
+            // 2. EDIT BUTTON
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      AdminScreen(herb: herb), // Pass the existing herb
+                  builder: (context) => AdminScreen(herb: herb),
                 ),
               ),
             ),
+          ],
         ],
       ),
       body: SingleChildScrollView(
@@ -140,5 +146,56 @@ class HerbDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _deleteHerb(BuildContext context) async {
+    // 1. Show a confirmation dialog
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Delete Herb?"),
+            content: Text(
+              "Are you sure you want to remove '${herb.name}'? This cannot be undone.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  "Delete",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (confirm) {
+      try {
+        // 2. Delete from Supabase
+        // Note: Because we used 'ON DELETE CASCADE' in our SQL,
+        // the disease links will be deleted automatically!
+        await Supabase.instance.client.from('herbs').delete().eq('id', herb.id);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Herb deleted successfully")),
+          );
+          // 3. Go back to Home Screen
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Error: $e")));
+        }
+      }
+    }
   }
 }
