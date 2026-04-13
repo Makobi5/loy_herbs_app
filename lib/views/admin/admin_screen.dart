@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loy_herbs/data/models/herb_model.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AdminScreen extends StatefulWidget {
   final Herb? herb; // Add this line to accept an existing herb
@@ -11,6 +14,8 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen> {
+  XFile? _imageFile; // To store the picked image
+  final ImagePicker _picker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _scientificController = TextEditingController();
@@ -35,45 +40,84 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() => _imageFile = image);
+    }
+  }
+
+  // Function to upload to Supabase
+  Future<String?> _uploadImage(String herbId) async {
+    if (_imageFile == null) return null;
+
+    final bytes = await _imageFile!.readAsBytes();
+    final fileExt = _imageFile!.name.split('.').last;
+    final fileName = '$herbId.$fileExt';
+    final filePath = fileName;
+
+    await Supabase.instance.client.storage
+        .from('herb-images')
+        .uploadBinary(filePath, bytes);
+
+    // Get the Public URL
+    return Supabase.instance.client.storage
+        .from('herb-images')
+        .getPublicUrl(filePath);
+  }
+
   Future<void> _saveHerb() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
       final supabase = Supabase.instance.client;
-      String herbId;
+      String? imageUrl =
+          widget.herb?.imageUrl; // Keep old image if no new one is picked
 
+      // 1. UPLOAD IMAGE IF SELECTED
+      if (_imageFile != null) {
+        final bytes = await _imageFile!.readAsBytes();
+        final fileExt = _imageFile!.name.split('.').last;
+        // Use timestamp for a unique filename
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+        await supabase.storage
+            .from('herb-images')
+            .uploadBinary(
+              fileName,
+              bytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
+
+        imageUrl = supabase.storage.from('herb-images').getPublicUrl(fileName);
+      }
+
+      String herbId;
+      final Map<String, dynamic> herbData = {
+        'name': _nameController.text,
+        'scientific_name': _scientificController.text,
+        'description': _descController.text,
+        'preparation_method': _prepController.text,
+        'image_url': imageUrl, // Save the image URL here
+      };
+
+      // 2. INSERT OR UPDATE HERB
       if (widget.herb == null) {
-        // NEW RECORD: Insert
         final data = await supabase
             .from('herbs')
-            .insert({
-              'name': _nameController.text,
-              'scientific_name': _scientificController.text,
-              'description': _descController.text,
-              'preparation_method': _prepController.text,
-            })
+            .insert(herbData)
             .select()
             .single();
         herbId = data['id'];
       } else {
-        // EXISTING RECORD: Update
         herbId = widget.herb!.id;
-        await supabase
-            .from('herbs')
-            .update({
-              'name': _nameController.text,
-              'scientific_name': _scientificController.text,
-              'description': _descController.text,
-              'preparation_method': _prepController.text,
-            })
-            .eq('id', herbId);
-
-        // CLEANUP: Delete old disease links so we can re-add the current selection
+        await supabase.from('herbs').update(herbData).eq('id', herbId);
+        // Clean old disease links for update
         await supabase.from('herb_diseases').delete().eq('herb_id', herbId);
       }
 
-      // Sync Diseases (Same for both New and Edit)
+      // 3. SYNC DISEASES
       for (String diseaseName in _selectedDiseases) {
         final diseaseData = await supabase
             .from('diseases')
@@ -90,7 +134,7 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text("Database updated!")));
+        ).showSnackBar(const SnackBar(content: Text("Success!")));
         Navigator.pop(context);
       }
     } catch (e) {
@@ -105,7 +149,9 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add New Herb")),
+      appBar: AppBar(
+        title: Text(widget.herb == null ? "Add New Herb" : "Edit Herb"),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -115,16 +161,85 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Basic Info
+                    // --- IMAGE PICKER SECTION ---
+                    Center(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final XFile? image = await _picker.pickImage(
+                            source: ImageSource.gallery,
+                          );
+                          if (image != null) setState(() => _imageFile = image);
+                        },
+                        child: Container(
+                          width: 160,
+                          height: 160,
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: _imageFile != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: kIsWeb
+                                      ? Image.network(
+                                          _imageFile!.path,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : FutureBuilder(
+                                          future: _imageFile!.readAsBytes(),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.hasData)
+                                              return Image.memory(
+                                                snapshot.data!,
+                                                fit: BoxFit.cover,
+                                              );
+                                            return const CircularProgressIndicator();
+                                          },
+                                        ),
+                                )
+                              : widget.herb?.imageUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: Image.network(
+                                    widget.herb!.imageUrl!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_a_photo,
+                                      size: 40,
+                                      color: Colors.green,
+                                    ),
+                                    Text(
+                                      "Add Photo",
+                                      style: TextStyle(color: Colors.green),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // --- TEXT FIELDS ---
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(labelText: "Herb Name"),
+                      decoration: const InputDecoration(
+                        labelText: "Herb Name",
+                        border: OutlineInputBorder(),
+                      ),
                       validator: (v) => v!.isEmpty ? "Required" : null,
                     ),
+                    const SizedBox(height: 15),
                     TextFormField(
                       controller: _scientificController,
                       decoration: const InputDecoration(
-                        labelText: "Scientific Name (e.g. Vernonia amygdalina)",
+                        labelText: "Scientific Name",
+                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -132,6 +247,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       controller: _descController,
                       decoration: const InputDecoration(
                         labelText: "What does this herb do?",
+                        border: OutlineInputBorder(),
                       ),
                       maxLines: 4,
                     ),
@@ -140,13 +256,13 @@ class _AdminScreenState extends State<AdminScreen> {
                       controller: _prepController,
                       decoration: const InputDecoration(
                         labelText: "How do you prepare it?",
+                        border: OutlineInputBorder(),
                       ),
                       maxLines: 3,
                     ),
-
                     const SizedBox(height: 30),
 
-                    // 2. Target Diseases Section
+                    // --- DISEASES SECTION ---
                     const Text(
                       "Target Diseases",
                       style: TextStyle(
@@ -154,14 +270,14 @@ class _AdminScreenState extends State<AdminScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: TextField(
                             controller: _diseaseController,
                             decoration: const InputDecoration(
-                              hintText: "Enter disease (e.g. Fever, Malaria)",
+                              hintText: "Enter disease",
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -171,7 +287,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           icon: const Icon(
                             Icons.add_circle,
                             color: Color(0xFF1B5E20),
-                            size: 32,
+                            size: 35,
                           ),
                           onPressed: () {
                             if (_diseaseController.text.isNotEmpty) {
@@ -187,30 +303,27 @@ class _AdminScreenState extends State<AdminScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    // Display selected diseases as Chips
                     Wrap(
                       spacing: 8.0,
-                      runSpacing: 4.0,
-                      children: _selectedDiseases.map((disease) {
-                        return Chip(
-                          label: Text(disease),
-                          backgroundColor: Colors.green.shade50,
-                          onDeleted: () {
-                            setState(() {
-                              _selectedDiseases.remove(disease);
-                            });
-                          },
-                        );
-                      }).toList(),
+                      children: _selectedDiseases
+                          .map(
+                            (disease) => Chip(
+                              label: Text(disease),
+                              onDeleted: () => setState(
+                                () => _selectedDiseases.remove(disease),
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
 
                     const SizedBox(height: 40),
 
-                    // 3. Save Button
+                    // --- SAVE BUTTON ---
                     ElevatedButton(
                       onPressed: _saveHerb,
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 55),
+                        minimumSize: const Size(double.infinity, 60),
                         backgroundColor: const Color(0xFF1B5E20),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
@@ -218,8 +331,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         ),
                       ),
                       child: const Text(
-                        "Save Herb & Diseases",
-                        style: TextStyle(fontSize: 16),
+                        "Save Everything",
+                        style: TextStyle(fontSize: 18),
                       ),
                     ),
                   ],
