@@ -33,8 +33,6 @@ dependencies:
   supabase_flutter: ^2.0.0      # Backend
   image_picker: ^1.0.0          # For Admin to upload herb photos
   cached_network_image: ^3.3.0  # For offline-friendly image loading
-  isar: ^3.1.0                  # For Offline local storage
-  isar_flutter_libs: ^3.1.0
   provider: ^6.1.1 # For state management
   path_provider: ^2.1.2
   google_fonts: ^6.1.0  

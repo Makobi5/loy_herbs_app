@@ -7,6 +7,7 @@ import 'package:loy_herbs/views/detail/herb_detail_screen.dart';
 import 'package:loy_herbs/views/admin/admin_screen.dart';
 import 'package:loy_herbs/views/auth/signup_screen.dart';
 import 'package:loy_herbs/data/models/herb_model.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 // 1. THE HERB MODEL
 const List<String> adminEmails = [
@@ -15,6 +16,7 @@ const List<String> adminEmails = [
 ];
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
 
   try {
     await dotenv.load(fileName: ".env");
@@ -148,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Herb> allHerbs = [];
   List<Herb> filteredHerbs = [];
   bool isLoading = true;
+  String errorMessage = "";
 
   @override
   void initState() {
@@ -166,7 +169,10 @@ class _HomeScreenState extends State<HomeScreen> {
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() {
+        errorMessage = e.toString(); // Catch the real error!
+        isLoading = false;
+      });
     }
   }
 
@@ -195,7 +201,6 @@ class _HomeScreenState extends State<HomeScreen> {
             Supabase.instance.client.auth.currentUser?.email,
           ))
             TextButton.icon(
-              // CHANGED ICON TO Icons.add_circle_outline
               icon: const Icon(
                 Icons.add_circle_outline,
                 color: Color(0xFF1B5E20),
@@ -264,12 +269,29 @@ class _HomeScreenState extends State<HomeScreen> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredHerbs.isEmpty
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search_off, size: 60, color: Colors.grey),
-                        Text("No herbs found."),
+                        const Icon(
+                          Icons.search_off,
+                          size: 60,
+                          color: Colors.grey,
+                        ),
+                        const Text("No herbs found."),
+                        const SizedBox(height: 20),
+                        // --- DEBUG TEXT: THIS WILL TELL US THE PROBLEM ---
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            "Debug: ${errorMessage.isEmpty ? 'Fetch returned empty list' : errorMessage}",
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ],
                     ),
                   )
@@ -295,8 +317,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           herb.scientificName ?? "Species unknown",
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-
-                        // 2. LIST ITEM NAVIGATION (REFRESHES ON RETURN)
                         onTap: () {
                           Navigator.push(
                             context,
@@ -304,11 +324,21 @@ class _HomeScreenState extends State<HomeScreen> {
                               builder: (context) =>
                                   HerbDetailScreen(herb: herb),
                             ),
-                          ).then((_) => fetchHerbs()); // <--- REFRESH LOGIC
+                          ).then((_) => fetchHerbs());
                         },
                       );
                     },
                   ),
+          ),
+
+          // --- DOTENV CHECK: MAKE SURE URL IS NOT NULL ON ANDROID ---
+          Container(
+            padding: const EdgeInsets.all(4),
+            color: Colors.grey.shade200,
+            child: Text(
+              "URL Loaded: ${dotenv.env['SUPABASE_URL']?.substring(0, 10)}...",
+              style: const TextStyle(fontSize: 8),
+            ),
           ),
         ],
       ),
